@@ -1,0 +1,21 @@
+# ОС
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Редакторы
+.idea/
+.vscode/
+*.swp
+
+# Окружение и зависимости (с М03+)
+node_modules/
+__pycache__/
+.venv/
+venv/
+
+# Сборки и локальные артефакты
+dist/
+build/
+*.log
+.env
