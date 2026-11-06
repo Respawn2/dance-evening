@@ -1,0 +1,11 @@
+# Правила YAML репозитория (файлы конвейера).
+# Причина каждого отключения — в docs/pipeline.md.
+extends: default
+
+rules:
+  # Команды сборки и ссылки в workflow бывают длинными — длина не критична.
+  line-length: disable
+  # Ключ `on:` GitHub Actions yamllint считает логическим значением.
+  truthy: disable
+  # Маркер `---` в начале файла не требуется.
+  document-start: disable

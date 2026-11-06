@@ -1,0 +1,12 @@
+{
+  // Правила Markdown всего репозитория.
+  // Каждое исключение фиксируется в docs/pipeline.md вместе с причиной.
+  "config": {
+    "default": true,
+    "MD013": { "line_length": 120, "tables": false, "code_blocks": false },
+    "MD024": { "siblings_only": true },
+    "MD036": false,
+    "MD060": { "style": "compact" }
+  },
+  "globs": ["**/*.md"]
+}
