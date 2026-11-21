@@ -1,0 +1,9 @@
+# Локальные хуки: запускаются до каждого коммита (pre-commit install).
+# Состав тот же, что в конвейере: линтер, форматтер.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format

@@ -1,0 +1,56 @@
+erDiagram
+    USERS {
+        uuid id PK
+        text email UK "естественный ключ, не первичный"
+        text nickname "публичное имя в „Кто идёт“ и отзывах"
+        text role "visitor | organizer — роль пользователя (UserRole)"
+        timestamptz created_at
+    }
+
+    EVENINGS {
+        uuid id PK
+        uuid organizer_id FK
+        text category "dance | standup | quiz | concert | games"
+        text title "И-7: непусто"
+        text venue_name "И-7: непусто"
+        text venue_address
+        timestamptz starts_at "интервал полуоткрытый — И-1, И-2"
+        timestamptz ends_at
+        int capacity "И-3: положителен"
+        int price_leader_rub "И-4, И-5: обязательна для dance"
+        int price_follower_rub "И-4, И-5"
+        int imbalance_threshold "порог перекоса, И-4"
+        int max_discount_percent "предел снижения, И-5: 1..100"
+        text status "announced | cancelled; ongoing и finished вычисляются по времени"
+        text cancel_reason "обязательна при cancelled"
+        timestamptz cancelled_at
+        timestamptz created_at
+    }
+
+    REGISTRATIONS {
+        uuid id PK
+        uuid evening_id FK
+        uuid user_id FK
+        text dance_role "leader | follower | none — роль в паре, И-8"
+        text status "active | confirmed | cancelled | withdrawn | arrived | no_show"
+        text withdraw_reason "обязательна для withdrawn — И-9"
+        uuid withdrawn_by FK "кто снял — И-9"
+        timestamptz ended_at "момент отмены, снятия или отметки"
+        timestamptz created_at
+    }
+
+    REVIEWS {
+        uuid id PK
+        uuid evening_id FK
+        uuid user_id FK
+        int rating "1..5 — И-12"
+        text body "1..2000 символов — И-13"
+        timestamptz created_at
+    }
+
+    USERS ||--o{ EVENINGS : "публикует"
+    USERS ||--o{ REGISTRATIONS : "создаёт"
+    USERS |o--o{ REGISTRATIONS : "снимает"
+    EVENINGS ||--o{ REGISTRATIONS : "собирает"
+    EVENINGS ||--o{ REVIEWS : "получает"
+    USERS ||--o{ REVIEWS : "пишет"

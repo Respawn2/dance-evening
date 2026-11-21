@@ -1,0 +1,27 @@
+%% C4, уровень 1: контекст системы «Вечера» — ЛР 2Г.
+%% Внутреннего устройства здесь нет: базы и сервисы — на диаграмме контейнеров.
+%% Соглашение об оформлении — docs/architecture/README.md
+flowchart TB
+    visitor["Посетитель<br/><i>человек</i><br/>Ищет вечера, записывается, отзывается"]
+    organizer["Организатор вечеров<br/><i>человек</i><br/>Публикует вечера, ведёт список на входе"]
+
+    subgraph boundary["Система «Вечера»"]
+        system["Система «Вечера»<br/><i>программная система</i><br/>Афиша, запись, состав, отзывы"]
+    end
+
+    mail["Почтовый сервер<br/><i>внешняя система</i><br/>Подтверждения и напоминания<br/>(ЛР 6А, пока журнал)"]
+    ci["Конвейер GitHub Actions<br/><i>внешняя система</i><br/>Собирает и проверяет"]
+    probe["Внешняя проверка<br/><i>внешняя система</i><br/>Опрашивает /health"]
+
+    visitor -->|"ищет и записывается<br/>HTTPS"| system
+    organizer -->|"публикует и отмечает<br/>HTTPS"| system
+    system -->|"отправляет подтверждения<br/>SMTP"| mail
+    ci -->|"развёртывает<br/>образ контейнера"| system
+    probe -->|"опрашивает<br/>HTTP GET /health"| system
+
+    classDef actor fill:#E8EEF7,stroke:#4A7DB5,color:#16202E
+    classDef sys fill:#FBF0EC,stroke:#E2603A,color:#16202E
+    classDef ext fill:#F1F3F6,stroke:#5B6472,color:#16202E
+    class visitor,organizer actor
+    class system sys
+    class mail,ci,probe ext

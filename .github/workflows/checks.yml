@@ -1,0 +1,192 @@
+# Конвейер проверок «Вечеров».
+# Запускается на каждый pull request и каждый пуш в main.
+# Состав проверок и локальный запуск описаны в docs/pipeline.md.
+
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  markdown:
+    name: Стиль Markdown
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+      - name: Установить markdownlint-cli2
+        run: npm install --global markdownlint-cli2
+      - name: Проверить Markdown
+        run: markdownlint-cli2
+
+  yaml:
+    name: Стиль YAML
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+      - name: Установить yamllint
+        run: python3 -m pip install yamllint
+      - name: Проверить YAML
+        run: yamllint .
+
+  docs:
+    name: Плейсхолдеры, ссылки, матрица
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+      - name: Проверить документы
+        run: python3 scripts/check_docs.py
+
+  decisions:
+    name: Записи о решениях
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+      - name: Обязательные разделы в каждой записи
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          failed=0
+          for file in docs/adr/[0-9]*.md; do
+            for section in "## Контекст" "## Движущие факторы" \
+                           "## Рассмотренные варианты" "## Решение" "## Последствия"; do
+              grep -q "^$section" "$file" || { echo "$file: нет раздела «$section»"; failed=1; }
+            done
+            grep -q "Что пересмотрит решение" "$file" \
+              || { echo "$file: нет условия пересмотра"; failed=1; }
+            grep -q "^- \*\*Статус\*\*" "$file" \
+              || { echo "$file: нет статуса"; failed=1; }
+          done
+          exit $failed
+      - name: Каждая запись есть в указателе
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          failed=0
+          for file in docs/adr/[0-9]*.md; do
+            grep -q "$(basename "$file")" docs/adr/README.md \
+              || { echo "$(basename "$file") отсутствует в указателе"; failed=1; }
+          done
+          exit $failed
+
+  diagrams:
+    name: Диаграммы
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+      - name: Установить Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Отрисовать каждую диаграмму
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          failed=0
+          for file in docs/**/*.mmd; do
+            echo "== $file"
+            npx --yes @mermaid-js/mermaid-cli -p .puppeteer.json -i "$file" -o "/tmp/$(basename "$file").svg" \
+              || { echo "НЕ ОТРИСОВЫВАЕТСЯ: $file"; failed=1; }
+          done
+          exit $failed
+
+  backend:
+    name: "Код: формат, типы, тесты"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+      - name: Установить uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Поставить Python и зависимости по uv.lock
+        run: uv sync --frozen
+      - name: Формат кода
+        run: uv run ruff format --check .
+      - name: Линтер
+        run: uv run ruff check .
+      - name: Типы
+        run: uv run mypy src/
+      - name: Тесты с порогом покрытия
+        run: uv run pytest --cov=src/evenings --cov-report=term-missing --cov-fail-under=70
+      - name: Граница слоёв (ADR-0003)
+        run: |
+          if grep -rn "fastapi\|asyncpg\|httpx" src/evenings/domain src/evenings/services; then
+            echo "Предметная логика не должна зависеть от каркаса и драйверов"
+            exit 1
+          fi
+
+  image:
+    name: Образ контейнера
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+      - name: Собрать образ
+        run: docker build -t evenings:ci .
+      - name: Контейнер отвечает на /health
+        run: |
+          docker run -d --name probe \
+            -e DATABASE_URL=postgresql://b:b@localhost:5432/b \
+            -p 8080:8080 evenings:ci
+          for i in $(seq 1 20); do
+            curl -fsS http://localhost:8080/health && break || sleep 1
+          done
+          curl -fsS http://localhost:8080/health
+          docker rm -f probe
+
+  language:
+    name: Единый язык
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+      - name: Каждое имя из глоссария есть в коде
+        run: |
+          set -euo pipefail
+          failed=0
+          # Только первая таблица (термины); колонка 3 — «имя в коде»,
+          # колонка 6 — «состояние»: строка с непустым состоянием ещё не реализована.
+          names=$(awk -F'|' '
+            /^\| *Термин *\|/ && !seen { seen = 1; in_table = 1; next }
+            in_table && /^\|[ :-]+\|/  { next }
+            in_table && !/^\|/         { exit }
+            in_table {
+              state = $6; gsub(/[ \t]/, "", state)
+              if (state == "" && match($3, /`[A-Za-z_][A-Za-z0-9_]*`/))
+                print substr($3, RSTART + 1, RLENGTH - 2)
+            }
+          ' docs/domain/ubiquitous-language.md | sort -u)
+          for name in $names; do
+            grep -rqw "$name" src/ || { echo "В коде нет: $name"; failed=1; }
+          done
+          exit $failed
+      - name: Запрещённые слова не появляются в коде
+        run: |
+          set -euo pipefail
+          failed=0
+          for word in Manager Data Helper Util Info Processor; do
+            if grep -rnE "class [A-Za-z]*${word}\b" src/; then
+              echo "Имя не из языка предметной области: *${word}"
+              failed=1
+            fi
+          done
+          exit $failed

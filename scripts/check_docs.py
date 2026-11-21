@@ -8,7 +8,9 @@
 - кодировка UTF-8, отсутствие BOM и переводов строк CRLF;
 - пустая строка в конце файла;
 - незаполненные остатки: TODO, FIXME и подобные;
-- ссылки на локальные файлы и якоря заголовков.
+- ссылки на локальные файлы и якоря заголовков;
+- строки таблиц матрицы прослеживаемости без идентификатора требования (ЛР 2А);
+- разделы требований к качеству без величины с единицей (ЛР 2А).
 
 Выход: 0 — замечаний нет, 1 — замечания перечислены в выводе.
 """
@@ -23,6 +25,10 @@ REPO = Path(__file__).resolve().parent.parent
 FORBIDDEN = ("TODO", "FIXME", "XXX", "待补充", "【", "undefined", "NaN")
 
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+
+ID_RE = re.compile(r"(FR|NFR|BR|C)-\d+")
+
+NFR_UNIT_RE = re.compile(r"\d+ *(мс|с|%|мин|команд)")
 
 
 def heading_anchors(text: str) -> set:
@@ -82,11 +88,55 @@ def check_file(path: Path) -> list:
     return issues
 
 
+def check_traceability(text: str) -> list:
+    """Строки таблиц матрицы без идентификатора требования (ЛР 2А).
+
+    Заголовки и разделители таблиц пропускаются; пустой список — проверка
+    пройдена.
+    """
+    issues = []
+    for lineno, line in enumerate(text.splitlines(), 1):
+        if not line.startswith("|"):
+            continue
+        if re.match(r"^\|[-:| ]+$", line):
+            continue
+        if line.startswith(("| ID", "| Критерий", "| Шаг пути")):
+            continue
+        if not ID_RE.search(line):
+            issues.append(f"docs/traceability.md:{lineno}: строка матрицы без идентификатора")
+    return issues
+
+
+def check_nfr_numbers(text: str) -> list:
+    """Разделы NFR без величины с единицей (ЛР 2А).
+
+    Раздел просматривается целиком, до следующего заголовка. Пустой список —
+    проверка пройдена.
+    """
+    issues = []
+    header = ""
+    has_number = False
+    for line in text.splitlines():
+        if line.startswith("### `NFR"):
+            if header and not has_number:
+                issues.append(f"docs/requirements.md: {header}: нет величины с единицей")
+            header, has_number = line, False
+        elif line.startswith("#"):
+            if header and not has_number:
+                issues.append(f"docs/requirements.md: {header}: нет величины с единицей")
+            header, has_number = "", False
+        elif header and NFR_UNIT_RE.search(line):
+            has_number = True
+    if header and not has_number:
+        issues.append(f"docs/requirements.md: {header}: нет величины с единицей")
+    return issues
+
+
 def main() -> int:
     md_files = sorted(
         path
         for path in REPO.rglob("*.md")
-        if not any(part in path.parts for part in (".git", "node_modules"))
+        if not any(part in path.parts for part in (".git", ".venv", "node_modules"))
     )
     if not md_files:
         print("Markdown-файлы не найдены — скрипт запущен не из корня репозитория?")
@@ -95,6 +145,14 @@ def main() -> int:
     issues = []
     for path in md_files:
         issues.extend(check_file(path))
+
+    traceability = REPO / "docs" / "traceability.md"
+    if traceability.exists():
+        issues.extend(check_traceability(traceability.read_text(encoding="utf-8")))
+
+    requirements = REPO / "docs" / "requirements.md"
+    if requirements.exists():
+        issues.extend(check_nfr_numbers(requirements.read_text(encoding="utf-8")))
 
     if issues:
         print(f"Проверка документов: замечаний {len(issues)}\n")
