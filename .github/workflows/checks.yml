@@ -96,6 +96,7 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s globstar nullglob
+          printf '%s\n' '{"args":["--no-sandbox","--disable-setuid-sandbox"]}' > /tmp/puppeteer-config.json
           failed=0
           for file in docs/**/*.mmd; do
             echo "== $file"
