@@ -8,11 +8,17 @@ desktop.ini
 .vscode/
 *.swp
 
-# Окружение и зависимости (с М03+)
+# Окружение и зависимости
 node_modules/
 __pycache__/
 .venv/
 venv/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 
 # Сборки и локальные артефакты
 dist/

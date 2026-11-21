@@ -8,5 +8,7 @@
     "MD036": false,
     "MD060": { "style": "compact" }
   },
+  // .venv и node_modules — артефакты окружения, а не документы проекта.
+  "ignores": ["node_modules/**", ".venv/**"],
   "globs": ["**/*.md"]
 }

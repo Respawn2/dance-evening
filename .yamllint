@@ -9,3 +9,6 @@ rules:
   truthy: disable
   # Маркер `---` в начале файла не требуется.
   document-start: disable
+  # Закомментированные строки конфигурации (например, порт базы в compose.yaml)
+  # пишутся с сохранением отступов — это подсказка, а не ошибка стиля.
+  comments-indentation: disable

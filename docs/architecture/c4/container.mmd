@@ -1,0 +1,39 @@
+%% C4, уровень 2: контейнеры системы «Вечера» — ЛР 2Г.
+%% Контейнер здесь — запускаемая единица или хранилище, не контейнер Docker.
+%% Технологии — из ADR-0002 и ADR-0003; пометки «ЛР NN» — когда появится.
+flowchart TB
+    visitor["Посетитель<br/><i>человек</i>"]
+    organizer["Организатор<br/><i>человек</i>"]
+
+    subgraph boundary["Система «Вечера»"]
+        web["Браузерное приложение<br/><i>контейнер: JavaScript, Vue 3.5, Vite 6</i><br/>Афиша, страница вечера, запись<br/><b>ЛР 8</b>"]
+        api["Сервис API<br/><i>контейнер: Python 3.13, FastAPI</i><br/>Правила вечеров и записей, контракт API"]
+        db[("База данных<br/><i>контейнер: PostgreSQL 17</i><br/>Вечера, записи, отзывы, пользователи<br/><b>ЛР 4А</b>")]
+        cache[("Кеш<br/><i>контейнер: Valkey 8</i><br/>Афиша, страницы вечеров, состав<br/><b>ЛР 6А</b>")]
+        broker["Брокер сообщений<br/><i>контейнер: RabbitMQ 4</i><br/>События вечеров и записей<br/><b>ЛР 6А</b>"]
+        worker["Обработчик событий<br/><i>контейнер: Python 3.13</i><br/>Уведомления<br/><b>ЛР 6А</b>"]
+    end
+
+    mail["Почтовый сервер<br/><i>внешняя система</i>"]
+    ci["Конвейер GitHub Actions<br/><i>внешняя система</i>"]
+    probe["Внешняя проверка<br/><i>внешняя система</i>"]
+
+    visitor -->|"HTTPS"| web
+    organizer -->|"HTTPS"| web
+    web -->|"вызывает<br/>JSON поверх HTTPS"| api
+    api -->|"читает и пишет вечера и записи<br/>SQL поверх TCP"| db
+    api -->|"читает и пишет афишу и состав<br/>протокол RESP"| cache
+    api -->|"публикует EveningPublished,<br/>EveningCancelled, RegistrationCreated,<br/>RegistrationCancelled, RegistrationWithdrawn<br/>AMQP"| broker
+    broker -->|"доставляет те же события<br/>AMQP"| worker
+    worker -->|"отправляет письма<br/>SMTP"| mail
+    ci -->|"развёртывает<br/>образ контейнера"| api
+    probe -->|"опрашивает<br/>HTTP GET /health"| api
+
+    classDef actor fill:#E8EEF7,stroke:#4A7DB5,color:#16202E
+    classDef sys fill:#FBF0EC,stroke:#E2603A,color:#16202E
+    classDef store fill:#ECF6F4,stroke:#3E9E8F,color:#16202E
+    classDef ext fill:#F1F3F6,stroke:#5B6472,color:#16202E
+    class visitor,organizer actor
+    class web,api,worker sys
+    class db,cache,broker store
+    class mail,ci,probe ext

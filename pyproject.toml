@@ -1,0 +1,48 @@
+[project]
+name = "evenings"
+version = "0.5.0"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "pydantic-settings>=2.6.0",
+    "structlog>=24.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27.0",
+    "mypy>=1.13.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+# RUF001–RUF003 отключены: документы, docstring и сообщения этого проекта —
+# на русском, и кириллические буквы, похожие на латинские, здесь норма,
+# а не опечатка. Причина исключения описана в docs/pipeline.md.
+# N818 отключено: имена ошибок предметной области — термины единого языка
+# без суффикса Error (InvalidEvening, EveningFull), как в эталоне курса.
+ignore = ["RUF001", "RUF002", "RUF003", "N818"]
+
+[tool.mypy]
+python_version = "3.13"
+disallow_untyped_defs = true
+warn_unused_ignores = true
+warn_return_any = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+pythonpath = ["."]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
